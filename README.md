@@ -1,2 +1,2 @@
 # SkillFactory
-Student projects (Real Data Science)
+Student's projects (Real Data Science)
