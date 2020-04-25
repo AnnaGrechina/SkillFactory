@@ -15,7 +15,6 @@ class Classifier:
         self.ham_words = dict()
         self.pA = 0.5 # вероятность встретить спам
         self.pNotA = 0.5 # вероятность встретить не-спам
-        self.number_unical_words = 0  # количество уникальных слов - заполним при обучении
         self.sum_spam_words = 0 # общее кол-во слов в спам текстах (неуникальное)
         self.sum_ham_words = 0  # общее кол-во слов в не-спам текстах (неуникальное)
 
@@ -25,19 +24,12 @@ class Classifier:
         # функция актуализирует словари спам-слов и не-спам-слов для одного предложения из train_data. 
         # Ключ - слово, значение - сколько раз встретили
         body = self.text_clean(rbody) #приводим текст к нижнему регистру и убираем знаки прептнания
-        # заполняем спам-словарь
-        if label == 'SPAM':
-            for rword in body.split():
-                word = self.words_only(rword) #слова оставляем, последовательности цифр заменяем на 555
-                if word not in self.spam_words: 
-                    self.spam_words[word] = 0 #первый раз --> новый ключ с value = 0
-                self.spam_words[word] += 1
-        if label == 'NOT_SPAM':
-            for rword in body.split():
-                word = self.words_only(rword)
-                if word not in self.ham_words: 
-                    self.ham_words[word] = 0 #первый раз --> новый ключ с value = 0
-                self.ham_words[word] += 1
+        for rword in body.split():
+            word = self.words_only(rword)
+            self.spam_words[word] = self.spam_words.get(word,0)
+            self.ham_words[word] = self.ham_words.get(word,0)
+            if label == 'SPAM': self.spam_words[word] += 1
+            if label == 'NOT_SPAM': self.ham_words[word] += 1
         return
 
     
@@ -48,21 +40,18 @@ class Classifier:
         total_texts = 0
         spam_texts = 0
         ham_texts = 0
-        for text in self.train_data:
-		    # text представляет собой список из 2 элементов: 1 - сам текст, 2 - метка
-			# обновляем соответствующий словарь (функция calculate_word_frequencies)
-            self.calculate_word_frequencies(*text)
+        for text, label in self.train_data:
+            self.calculate_word_frequencies(text, label)
 			# добавляем счетчик общего числа текстов и текстов с соответвующей меткой
             total_texts += 1
-            if text[1] == 'SPAM':
+            if label == 'SPAM':
                 spam_texts += 1
-            elif text[1] == 'NOT_SPAM':
+            elif label == 'NOT_SPAM':
                 ham_texts += 1
 		# после того, как прошлись по всему тренировочному набору,
 		# вычисляем частоту спам-неспам, общее количество спам-слов и неспам-слов
         self.pA = spam_texts/total_texts # вероятность встретить спам
         self.pNotA = ham_texts/total_texts # вероятность встретить не-спам
-        self.number_unical_words = len(self.spam_words.keys()|self.ham_words.keys())
         self.sum_spam_words = sum(self.spam_words.values())
         self.sum_ham_words = sum(self.ham_words.values())
         return
@@ -72,12 +61,12 @@ class Classifier:
         word = self.words_only(rword)
         offset = 1
         if label == 'SPAM':
-            res_norm = (self.spam_words.get(word,0) + offset)/(self.sum_spam_words + offset * len(self.spam_words))
+            res = (self.spam_words.get(word,0) + offset)/(self.sum_spam_words + offset * len(self.spam_words))
         elif label == 'NOT_SPAM':
-            res_norm = (self.ham_words.get(word,0) + offset)/(self.sum_ham_words + offset * len(self.ham_words))
+            res = (self.ham_words.get(word,0) + offset)/(self.sum_ham_words + offset * len(self.ham_words))
         else:
             return None
-        return res_norm
+        return res
     
     def calculate_log_P_B_A(self, text, label):
 	# вычисляем логарифм вероятности, что текст является LABEL (спам или неспам)

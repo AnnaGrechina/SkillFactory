@@ -10,28 +10,21 @@ class Classifier:
         self.ham_words = dict()
         self.pA = 0.5 # веро€тность встретить спам
         self.pNotA = 0.5 # веро€тность встретить не-спам
-        self.number_unical_words = 0  # количество уникальных слов - заполним при обучении
         self.sum_spam_words = 0 # общее кол-во слов в спам текстах (неуникальное)
         self.sum_ham_words = 0  # общее кол-во слов в не-спам текстах (неуникальное)
 
         
         
     def calculate_word_frequencies(self, rbody, label):
-        # функци€ заполн€ет словари спам-слов и не-спам-слов. 
+        # функци€ актуализирует словари спам-слов и не-спам-слов дл€ одного предложени€ из train_data. 
         #  люч - слово, значение - сколько раз встретили
         body = self.text_clean(rbody) #приводим текст к нижнему регистру и убираем знаки прептнани€
-        if label == 'SPAM':
-            for rword in body.split():
-                word = self.words_only(rword) #слова оставл€ем, последовательности цифр замен€ем на 555
-                if word not in self.spam_words: 
-                    self.spam_words[word] = 0
-                self.spam_words[word] += 1
-        if label == 'NOT_SPAM':
-            for rword in body.split():
-                word = self.words_only(rword)
-                if word not in self.ham_words: 
-                    self.ham_words[word] = 0
-                self.ham_words[word] += 1
+        for rword in body.split():
+            word = self.words_only(rword)
+            self.spam_words[word] = self.spam_words.get(word,0)
+            self.ham_words[word] = self.ham_words.get(word,0)
+            if label == 'SPAM': self.spam_words[word] += 1
+            if label == 'NOT_SPAM': self.ham_words[word] += 1
         return
 
     
@@ -40,16 +33,16 @@ class Classifier:
         total_texts = 0
         spam_texts = 0
         ham_texts = 0
-        for text in self.train_data:
-            self.calculate_word_frequencies(*text) # вызываем функцию, котора€ заполн€ет словари
+        for text, label in self.train_data:
+            self.calculate_word_frequencies(text, label) # вызываем функцию, котора€ заполн€ет словари
+            # добавл€ем счетчик общего числа текстов и текстов с соответвующей меткой
             total_texts += 1
-            if text[1] == 'SPAM':
+            if label == 'SPAM':
                 spam_texts += 1
-            elif text[1] == 'NOT_SPAM':
+            elif label == 'NOT_SPAM':
                 ham_texts += 1
         self.pA = spam_texts/total_texts # веро€тность встретить спам
         self.pNotA = ham_texts/total_texts # веро€тность встретить не-спам
-        self.number_unical_words = len(self.spam_words.keys()|self.ham_words.keys())
         self.sum_spam_words = sum(self.spam_words.values())
         self.sum_ham_words = sum(self.ham_words.values())
         return
@@ -58,11 +51,9 @@ class Classifier:
         word = self.words_only(rword)
         offset = 1
         if label == 'SPAM':
-		# веро€тности со сглаживанием без нормировани€, так получилось правильно 2 из 3 определить
-            res = (self.spam_words.get(word,0) + offset)/(self.number_unical_words + self.sum_spam_words)
+            res = (self.spam_words.get(word,0) + offset)/(self.sum_spam_words + offset * len(self.spam_words))
         elif label == 'NOT_SPAM':
-		# веро€тности со сглаживанием без нормировани€, так получилось правильно 2 из 3 определить
-            res = (self.ham_words.get(word,0) + offset)/(self.number_unical_words + self.sum_ham_words)
+            res = (self.ham_words.get(word,0) + offset)/(self.sum_ham_words + offset * len(self.ham_words))
         else:
             return None
         return res   
@@ -81,12 +72,12 @@ class Classifier:
 
     
     def text_clean(self, text):
-        # приводит текст к нижнему регистру и удала€ет знаки препинани€ из текста 
+        # приводит текст к нижнему регистру и удал€ет знаки препинани€ из текста 
         return text.lower().translate(str.maketrans('', '', string.punctuation))
     
     def words_only(self, rword):
-        # оставл€ем значащими только слова, а все последовательности цифр замен€ем на "555"
-        word = rword if not rword.isnumeric() else 'number'
+        # оставл€ем значащими только слова, а все последовательности цифр замен€ем на "NUMBER"
+        word = rword if not rword.isnumeric() else 'NUMBER'
         word = word if len(word) <20 else 'veryverylongword'
         return word
     
